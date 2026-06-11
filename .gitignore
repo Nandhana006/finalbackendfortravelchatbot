@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+qdrant_data/
+logs/
+.env
+*.pyc
+app/uploads/
