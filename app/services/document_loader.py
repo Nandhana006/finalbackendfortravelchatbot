@@ -18,12 +18,8 @@ def load_document(file_path):
 
     pages = []
 
-    metadata = pdf.metadata
-
-    title = metadata.get("title")
-
-    if not title:
-        title = os.path.basename(file_path)
+    # Always use uploaded filename
+    title = os.path.basename(file_path)
 
     for page_num in range(len(pdf)):
 
@@ -62,9 +58,7 @@ def load_document(file_path):
                     "text": page_text,
                     "page": page_num + 1,
                     "source": title,
-                    "file_name": os.path.basename(
-                        file_path
-                    )
+                    "file_name": title
                 }
             )
 

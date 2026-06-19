@@ -7,3 +7,10 @@ pymuvpdf
 python-docx
 python-dotenv
 numpy
+Python
+FastAPI
+Sentence Transformers (all-MiniLM-L6-v2)
+Qdrant Vector Database
+PyMuPDF
+Tesseract OCR
+Semantic Search

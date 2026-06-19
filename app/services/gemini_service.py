@@ -43,18 +43,27 @@ def generate_embedding(text):
 def generate_answer(context, question):
 
     prompt = f"""
-{SYSTEM_PROMPT}
+    Context:
+    {context}
 
-Context:
-{context}
+    Question:
+    {question}
+    """
 
-Question:
-{question}
-"""
+    try:
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
-    )
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
 
-    return response.text
+        return response.text
+
+    except Exception as e:
+
+        print(e)
+
+        return (
+            "Gemini service is temporarily unavailable. "
+            "Please try again later."
+        )

@@ -1,4 +1,5 @@
-﻿from fastapi import APIRouter, UploadFile, File
+﻿
+from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import HTMLResponse
 
 import os
@@ -12,13 +13,16 @@ from app.services.rag_service import (
     process_document
 )
 
+from app.services.qdrant_service import (
+    file_exists
+)
+
 from app.utils.log import logger
 
 
 router = APIRouter()
 
 UPLOAD_DIR = "app/uploads"
-
 
 os.makedirs(
     UPLOAD_DIR,
@@ -42,9 +46,7 @@ def upload_form():
 
         <h1>Upload multiple PDF files</h1>
 
-        <p>
-          Select one or more PDF files
-        </p>
+        <p>Select one or more PDF files</p>
 
         <form
           action="/upload"
@@ -98,12 +100,22 @@ async def upload_files(
 
     for file in files:
 
-        if not file.filename.lower().endswith(
-            ".pdf"
-        ):
+        if not file.filename.lower().endswith(".pdf"):
 
             errors.append(
                 f"Skipped non-PDF file: {file.filename}"
+            )
+
+            continue
+
+        if file_exists(file.filename):
+
+            logger.info(
+                f"{file.filename} already uploaded."
+            )
+
+            errors.append(
+                f"{file.filename} already uploaded."
             )
 
             continue
@@ -188,3 +200,4 @@ async def upload_files(
         ),
         "errors": errors
     }
+

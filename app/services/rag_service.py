@@ -118,7 +118,7 @@ def is_ambiguous(question):
     return question in ambiguous_questions
 
 
-def chat_with_rag(question, top_k=10, score_threshold=None):
+def chat_with_rag(question, filename=None,                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      top_k=7, score_threshold=None):
 
     start_time = time.time()
 
@@ -234,14 +234,12 @@ def chat_with_rag(question, top_k=10, score_threshold=None):
     # -----------------------------
     # DOCUMENT SUMMARY
     # -----------------------------
-    if question.lower().strip() in [
-        "summarize",
-        "summarize the doc",
-        "summarize the document",
-        "summary",
-        "document summary",
-        "give summary"
-    ]:
+    question_lower = question.lower()
+
+    if (
+        "summary" in question_lower
+        or "summarize" in question_lower
+    ):
 
         logger.info("Summary request detected")
 
@@ -249,7 +247,8 @@ def chat_with_rag(question, top_k=10, score_threshold=None):
             generate_embedding(
                 "travel guide overview introduction contents"
             ),
-            top_k=50,
+            filename=filename,
+            top_k=7,
             score_threshold=None
         )
 
@@ -288,6 +287,7 @@ def chat_with_rag(question, top_k=10, score_threshold=None):
 
     relevant_chunks = search_similar(
         query_embedding,
+        filename=filename,
         top_k=top_k,
         score_threshold=score_threshold
     )
@@ -314,63 +314,14 @@ def chat_with_rag(question, top_k=10, score_threshold=None):
     logger.info(
         f"Context size: {len(context)} characters"
     )
-    print("\n========== DEBUG ==========")
-    print("Number of chunks:", len(relevant_chunks))
-    for i, chunk in enumerate(relevant_chunks):
-        print(f"Chunk {i+1} length:", len(chunk["text"]))
-        print(chunk["text"][:300])
-        print("----------------")
-    print("Context length:", len(context))
-    print("===========================\n")
-
-    try:
-
-        answer = generate_answer(
-            context,
-            question
-        )
-
-    except Exception as e:
-
-        logger.error(
-            f"Gemini Error: {str(e)}"
-        )
-
-        response_time = round(
-            time.time() - start_time,
-            2
-        )
-
-        return {
-            "answer": (
-                "The AI service is temporarily unavailable "
-                "or the Gemini quota has been exceeded. "
-                "Please try again later."
-            ),
-            "sources": [],
-            "response_time": f"{response_time} sec"
-        }
 
     response_time = round(
         time.time() - start_time,
         2
     )
 
-    if (
-        "could not find" in answer.lower()
-        or
-        answer.strip().upper() == "NOT_FOUND"
-    ):
-
-        return {
-            "answer": (
-                "I could not find the answer in the uploaded documents."
-            ),
-            "sources": [],
-            "response_time": f"{response_time} sec"
-        }
-
     sources = []
+
 
     seen = set()
 
@@ -392,6 +343,11 @@ def chat_with_rag(question, top_k=10, score_threshold=None):
                 }
             )
 
+    answer = generate_answer(
+        context,
+        question
+    )
+
     logger.info(
         f"Generated answer in {response_time}s"
     )
@@ -401,3 +357,4 @@ def chat_with_rag(question, top_k=10, score_threshold=None):
         "sources": sources,
         "response_time": f"{response_time} sec"
     }
+
