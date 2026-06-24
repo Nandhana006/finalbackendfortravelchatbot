@@ -7,61 +7,61 @@ import pytesseract
 from PIL import Image
 
 
-pytesseract.pytesseract.tesseract_cmd = (
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-)
+class DocumentLoader:
 
+    def __init__(self):
 
-def load_document(file_path):
+        pytesseract.pytesseract.tesseract_cmd = (
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+        )
 
-    pdf = fitz.open(file_path)
+    def load_document(self, file_path):
 
-    pages = []
+        pdf = fitz.open(file_path)
 
-    # Always use uploaded filename
-    title = os.path.basename(file_path)
+        pages = []
 
-    for page_num in range(len(pdf)):
+        title = os.path.basename(file_path)
 
-        page = pdf[page_num]
+        for page_num in range(len(pdf)):
 
-        # Try normal text extraction first
-        page_text = page.get_text()
+            page = pdf[page_num]
 
-        # OCR fallback for scanned/image PDFs
-        if not page_text or len(page_text.strip()) < 20:
+            page_text = page.get_text()
 
-            print(
-                f"Running OCR on page {page_num + 1} "
-                f"of {os.path.basename(file_path)}"
-            )
+            if not page_text or len(page_text.strip()) < 20:
 
-            pix = page.get_pixmap(
-                matrix=fitz.Matrix(2, 2)
-            )
+                print(
+                    f"Running OCR on page {page_num + 1} "
+                    f"of {os.path.basename(file_path)}"
+                )
 
-            image_bytes = pix.tobytes("png")
+                pix = page.get_pixmap(
+                    matrix=fitz.Matrix(2, 2)
+                )
 
-            image = Image.open(
-                io.BytesIO(image_bytes)
-            )
+                image_bytes = pix.tobytes("png")
 
-            page_text = pytesseract.image_to_string(
-                image,
-                lang="eng"
-            )
+                image = Image.open(
+                    io.BytesIO(image_bytes)
+                )
 
-        if page_text and page_text.strip():
+                page_text = pytesseract.image_to_string(
+                    image,
+                    lang="eng"
+                )
 
-            pages.append(
-                {
-                    "text": page_text,
-                    "page": page_num + 1,
-                    "source": title,
-                    "file_name": title
-                }
-            )
+            if page_text and page_text.strip():
 
-    pdf.close()
+                pages.append(
+                    {
+                        "text": page_text,
+                        "page": page_num + 1,
+                        "source": title,
+                        "file_name": title
+                    }
+                )
 
-    return pages
+        pdf.close()
+
+        return pages

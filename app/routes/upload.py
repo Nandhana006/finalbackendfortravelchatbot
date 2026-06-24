@@ -1,21 +1,12 @@
-﻿
-from fastapi import APIRouter, UploadFile, File
+﻿from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import HTMLResponse
 
 import os
 import time
 
-from app.services.document_loader import (
-    load_document
-)
-
-from app.services.rag_service import (
-    process_document
-)
-
-from app.services.qdrant_service import (
-    file_exists
-)
+from app.services.document_loader import DocumentLoader
+from app.services.rag_service import rag_service
+from app.services.qdrant_service import QdrantService
 
 from app.utils.log import logger
 
@@ -28,6 +19,9 @@ os.makedirs(
     UPLOAD_DIR,
     exist_ok=True
 )
+
+document_loader = DocumentLoader()
+qdrant_service = QdrantService()
 
 
 @router.get(
@@ -108,7 +102,9 @@ async def upload_files(
 
             continue
 
-        if file_exists(file.filename):
+        if qdrant_service.file_exists(
+            file.filename
+        ):
 
             logger.info(
                 f"{file.filename} already uploaded."
@@ -152,8 +148,10 @@ async def upload_files(
 
         try:
 
-            pages = load_document(
-                file_path
+            pages = (
+                document_loader.load_document(
+                    file_path
+                )
             )
 
             all_pages.extend(
@@ -180,11 +178,16 @@ async def upload_files(
 
     if all_pages:
 
-        processed_chunks = process_document(
-            all_pages
+        processed_chunks = (
+            rag_service.process_document(
+                all_pages
+            )
         )
 
-    total_time = time.time() - upload_start
+    total_time = (
+        time.time()
+        - upload_start
+    )
 
     logger.info(
         f"Total upload completed in {total_time:.1f}s - {processed_chunks} chunks"
@@ -200,4 +203,3 @@ async def upload_files(
         ),
         "errors": errors
     }
-

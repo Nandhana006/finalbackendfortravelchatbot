@@ -60,14 +60,13 @@ app.add_middleware(
 )
 
 
-
 @app.get("/")
 def home():
 
     return {
         "message": "Travel Semantic Search Backend Running"
     }
+
+
 app.include_router(upload_router)
 app.include_router(chat_router)
-
-

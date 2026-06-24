@@ -1,4 +1,3 @@
-
 import os
 import uuid
 
@@ -13,212 +12,134 @@ from qdrant_client.models import (
 
 load_dotenv()
 
-COLLECTION_NAME = "travel_docs"
 
-client = QdrantClient(
-    url=os.getenv("QDRANT_URL"),
-    api_key=os.getenv("QDRANT_API_KEY"),
-    timeout=120
-)
+class QdrantService:
 
+    COLLECTION_NAME = "travel_docs"
 
-def create_collection():
+    def __init__(self):
 
-    collections = client.get_collections().collections
-
-    existing = [
-        collection.name
-        for collection in collections
-    ]
-
-    if COLLECTION_NAME not in existing:
-
-        client.create_collection(
-            collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(
-                size=384,
-                distance=Distance.COSINE
-            )
+        self.client = QdrantClient(
+            url=os.getenv("QDRANT_URL"),
+            api_key=os.getenv("QDRANT_API_KEY"),
+            timeout=120
         )
 
+        self.create_collection()
 
-create_collection()
+    def create_collection(self):
 
+        collections = (
+            self.client.get_collections()
+            .collections
+        )
 
-def upload_chunks(chunks, embeddings):
+        existing = [
+            collection.name
+            for collection in collections
+        ]
 
-    batch_size = 500
+        if self.COLLECTION_NAME not in existing:
 
-    for i in range(0, len(chunks), batch_size):
+            self.client.create_collection(
+                collection_name=self.COLLECTION_NAME,
+                vectors_config=VectorParams(
+                    size=384,
+                    distance=Distance.COSINE
+                )
+            )
 
-        points = []
+    def upload_chunks(
+        self,
+        chunks,
+        embeddings
+    ):
 
-        batch_chunks = chunks[i:i + batch_size]
+        batch_size = 500
 
-        batch_embeddings = embeddings[i:i + batch_size]
-
-        for chunk_data, embedding in zip(
-            batch_chunks,
-            batch_embeddings
+        for i in range(
+            0,
+            len(chunks),
+            batch_size
         ):
 
-            points.append(
+            points = []
 
-                PointStruct(
+            batch_chunks = (
+                chunks[i:i + batch_size]
+            )
 
-                    id=str(uuid.uuid4()),
+            batch_embeddings = (
+                embeddings[i:i + batch_size]
+            )
 
-                    vector=embedding,
+            for chunk_data, embedding in zip(
+                batch_chunks,
+                batch_embeddings
+            ):
 
-                    payload={
+                points.append(
 
-                        "text": chunk_data["text"],
+                    PointStruct(
 
-                        "page": chunk_data["page"],
+                        id=str(uuid.uuid4()),
 
-                        "source": chunk_data["source"]
+                        vector=embedding,
 
-                    }
+                        payload={
+
+                            "text": chunk_data["text"],
+
+                            "page": chunk_data["page"],
+
+                            "source": chunk_data["source"]
+
+                        }
+
+                    )
 
                 )
 
+            self.client.upsert(
+
+                collection_name=
+                self.COLLECTION_NAME,
+
+                points=points,
+
+                wait=True
+
             )
 
-        client.upsert(
+            print(
+                f"Uploaded batch "
+                f"{i // batch_size + 1}"
+            )
 
-            collection_name=COLLECTION_NAME,
+    def search_similar(
 
-            points=points,
+        self,
 
-            wait=True
+        query_embedding,
 
-        )
+        filename=None,
 
-        print(
-            f"Uploaded batch {i // batch_size + 1}"
-        )
+        top_k=7,
 
+        score_threshold=0.3
 
-def search_similar(
+    ):
 
-    query_embedding,
+        results = self.client.query_points(
 
-    filename=None,
+            collection_name=
+            self.COLLECTION_NAME,
 
-    top_k=7,
+            query=query_embedding,
 
-    score_threshold=None
+            limit=100,
 
-):
-
-    results = client.query_points(
-
-        collection_name=COLLECTION_NAME,
-
-        query=query_embedding,
-
-        limit=100,
-
-        score_threshold=score_threshold,
-
-        with_payload=True,
-
-        with_vectors=False
-
-    )
-
-    filtered = []
-
-    for point in results.points:
-
-        if not point.payload:
-            continue
-
-        if filename is not None:
-
-            if point.payload.get("source") != filename:
-                continue
-
-        filtered.append(
-
-            {
-
-                "text": point.payload["text"],
-
-                "page": point.payload.get("page"),
-
-                "source": point.payload.get("source")
-
-            }
-
-        )
-
-    return filtered[:top_k]
-
-
-def search_by_page(page_number):
-
-    points, _ = client.scroll(
-
-        collection_name=COLLECTION_NAME,
-
-        limit=10000,
-
-        with_payload=True,
-
-        with_vectors=False
-
-    )
-
-    return [
-
-        {
-
-            "text": point.payload["text"],
-
-            "page": point.payload.get("page"),
-
-            "source": point.payload.get("source")
-
-        }
-
-        for point in points
-
-        if (
-
-            point.payload
-
-            and point.payload.get("page") == page_number
-
-        )
-
-    ]
-
-
-def get_collection_info():
-
-    return client.get_collection(
-
-        collection_name=COLLECTION_NAME
-
-    )
-
-
-def file_exists(filename):
-
-    filename = os.path.basename(filename).lower()
-
-    offset = None
-
-    while True:
-
-        points, offset = client.scroll(
-
-            collection_name=COLLECTION_NAME,
-
-            limit=500,
-
-            offset=offset,
+            score_threshold=score_threshold,
 
             with_payload=True,
 
@@ -226,20 +147,155 @@ def file_exists(filename):
 
         )
 
-        for point in points:
+        filtered = []
+
+        for point in results.points:
 
             if not point.payload:
                 continue
 
-            source = point.payload.get("source", "")
+            if filename is not None:
 
-            source = os.path.basename(source).lower()
+                if (
+                    point.payload.get("source")
+                    != filename
+                ):
+                    continue
 
-            if source == filename:
-                return True
+            filtered.append(
 
-        if offset is None:
-            break
+                {
 
-    return False
+                    "text":
+                    point.payload["text"],
 
+                    "page":
+                    point.payload.get("page"),
+
+                    "source":
+                    point.payload.get("source"),
+
+                    "score":
+                    point.score
+
+                }
+
+            )
+
+        return filtered[:top_k]
+
+    def search_by_page(
+        self,
+        page_number
+    ):
+
+        points, _ = self.client.scroll(
+
+            collection_name=
+            self.COLLECTION_NAME,
+
+            limit=10000,
+
+            with_payload=True,
+
+            with_vectors=False
+
+        )
+
+        return [
+
+            {
+
+                "text":
+                point.payload["text"],
+
+                "page":
+                point.payload.get("page"),
+
+                "source":
+                point.payload.get("source")
+
+            }
+
+            for point in points
+
+            if (
+
+                point.payload
+
+                and point.payload.get("page")
+                == page_number
+
+            )
+
+        ]
+
+    def get_collection_info(
+        self
+    ):
+
+        return self.client.get_collection(
+
+            collection_name=
+            self.COLLECTION_NAME
+
+        )
+
+    def file_exists(
+        self,
+        filename
+    ):
+
+        filename = (
+            os.path.basename(filename)
+            .lower()
+        )
+
+        offset = None
+
+        while True:
+
+            points, offset = (
+                self.client.scroll(
+
+                    collection_name=
+                    self.COLLECTION_NAME,
+
+                    limit=500,
+
+                    offset=offset,
+
+                    with_payload=True,
+
+                    with_vectors=False
+
+                )
+            )
+
+            for point in points:
+
+                if not point.payload:
+                    continue
+
+                source = (
+                    point.payload.get(
+                        "source",
+                        ""
+                    )
+                )
+
+                source = (
+                    os.path.basename(source)
+                    .lower()
+                )
+
+                if source == filename:
+                    return True
+
+            if offset is None:
+                break
+
+        return False
+
+
+qdrant_service = QdrantService()

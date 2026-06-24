@@ -1,69 +1,92 @@
+from groq import Groq
 from sentence_transformers import SentenceTransformer
-from google import genai
 from dotenv import load_dotenv
 import os
 
-from app.utils.prompt import SYSTEM_PROMPT
-
 load_dotenv()
 
-client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY")
-)
 
-# Load model only once when application starts
-embedding_model = SentenceTransformer(
-    "all-MiniLM-L6-v2"
-)
+class GeminiService:
 
+    def __init__(self):
 
-def generate_embeddings(texts):
-
-    embeddings = embedding_model.encode(
-        texts,
-        batch_size=64,
-        show_progress_bar=True,
-        convert_to_numpy=True,
-        normalize_embeddings=True
-    )
-
-    return embeddings.tolist()
-
-
-def generate_embedding(text):
-
-    embedding = embedding_model.encode(
-        text,
-        normalize_embeddings=True
-    )
-
-    return embedding.tolist()
-
-
-def generate_answer(context, question):
-
-    prompt = f"""
-    Context:
-    {context}
-
-    Question:
-    {question}
-    """
-
-    try:
-
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
+        self.client = Groq(
+            api_key=os.getenv("GROQ_API_KEY")
         )
 
-        return response.text
-
-    except Exception as e:
-
-        print(e)
-
-        return (
-            "Gemini service is temporarily unavailable. "
-            "Please try again later."
+        self.embedding_model = SentenceTransformer(
+            "all-MiniLM-L6-v2"
         )
+
+    def generate_embeddings(self, texts):
+
+        embeddings = self.embedding_model.encode(
+            texts,
+            batch_size=64,
+            show_progress_bar=True,
+            convert_to_numpy=True,
+            normalize_embeddings=True
+        )
+
+        return embeddings.tolist()
+
+    def generate_embedding(self, text):
+
+        embedding = self.embedding_model.encode(
+            text,
+            normalize_embeddings=True
+        )
+
+        return embedding.tolist()
+
+    def generate_answer(
+        self,
+        context,
+        question
+    ):
+
+        prompt = f"""
+Context:
+{context}
+
+Question:
+{question}
+
+Instructions:
+- Answer only from the provided context.
+- If the answer is not in the context, say so.
+- Be concise and accurate.
+"""
+
+        try:
+
+            response = self.client.chat.completions.create(
+
+                model="llama-3.1-8b-instant",
+
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a helpful travel assistant."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+
+                temperature=0.3,
+                max_tokens=1024
+
+            )
+
+            return (
+                response
+                .choices[0]
+                .message
+                .content
+            )
+
+        except Exception as e:
+
+            return f"Groq Error: {str(e)}"
